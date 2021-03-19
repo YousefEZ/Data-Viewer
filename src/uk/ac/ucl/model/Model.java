@@ -1,8 +1,9 @@
 package uk.ac.ucl.model;
 
 import uk.ac.ucl.dataframe.DataFrame;
-import uk.ac.ucl.dataframe.DataLoader;
+import uk.ac.ucl.filehandlers.DataLoader;
 import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
+import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -12,8 +13,8 @@ public class Model {
 
     private DataFrame dataFrame;
 
-    public Model(String fileName) throws FileNotFoundException{
-        dataFrame = new DataLoader(fileName).getDataFrame(",");
+    public Model(String fileName) throws FileNotFoundException, InvalidJSONFileFormat{
+        dataFrame = DataLoader.read(fileName);
     }
 
     public int getRowCount(){

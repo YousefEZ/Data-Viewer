@@ -2,8 +2,11 @@ package uk.ac.ucl.gui;
 
 
 import uk.ac.ucl.controller.Controller;
+import uk.ac.ucl.controller.DataMatcher;
+import uk.ac.ucl.controller.exceptions.InvalidDateStringException;
 import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
-import uk.ac.ucl.jsonhandler.JSONWriter;
+import uk.ac.ucl.filehandlers.JSONWriter;
+import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -116,7 +119,7 @@ public class GUI {
 
         sidePanel.add(new JLabel(" FILTERS: "), BorderLayout.NORTH);
         frame.add(buttonPanel, BorderLayout.SOUTH);
-        frame.add(sidePanel, BorderLayout.WEST);
+        frame.add( new JScrollPane(sidePanel), BorderLayout.WEST);
 
         frame.add( new JScrollPane(table), BorderLayout.CENTER); //make it scrollable
     }
@@ -128,7 +131,7 @@ public class GUI {
     }
 
     // <--------------- Setting up components with data  ---------------->
-    private void setupController(String fileName) throws FileNotFoundException{
+    private void setupController(String fileName) throws FileNotFoundException, InvalidJSONFileFormat{
         controller = new Controller(fileName); // sets up controller.
         frame.setTitle(fileName + " - Data Viewer");
         searchButton.setEnabled(true);
@@ -204,13 +207,15 @@ public class GUI {
     private void loadData(){
         String filename = UserDialogInput.getFileName(frame, false);
         if (filename.equals("")) return; // not to trigger error message
-
         try {
             setupController(filename);
             JOptionPane.showMessageDialog(frame, "File has been loaded");
         } catch (FileNotFoundException exception){
             JOptionPane.showMessageDialog(frame,"File selected could not be found.","File not Found",
                     JOptionPane.ERROR_MESSAGE);
+        } catch (InvalidJSONFileFormat exception){
+            JOptionPane.showMessageDialog(frame,"File given doesn't follow the preferred JSON format",
+                    "File not Found", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -266,6 +271,9 @@ public class GUI {
             } catch (NumberFormatException exception) {
                 JOptionPane.showMessageDialog(frame,"Column does not conform to the type given","Error",
                         JOptionPane.ERROR_MESSAGE);
+            } catch (InvalidDateStringException exception) {
+                JOptionPane.showMessageDialog(frame, exception.getexceptionAt() + " doesn't fit the format of " +
+                        DataMatcher.FINDTYPES[findDialog.getSearchType()], "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

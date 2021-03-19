@@ -1,7 +1,9 @@
 package uk.ac.ucl.controller;
 
+import uk.ac.ucl.controller.exceptions.InvalidDateStringException;
 import uk.ac.ucl.dataframe.DataFrame;
 import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
+import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
 import uk.ac.ucl.model.Model;
 
 import java.io.FileNotFoundException;
@@ -15,7 +17,7 @@ public class Controller {
     private List<Integer> displayedRows;
     private List<Boolean> displayedColumns;
 
-    public Controller(String fileName) throws FileNotFoundException {
+    public Controller(String fileName) throws FileNotFoundException, InvalidJSONFileFormat {
         this.model = new Model(fileName);
         resetRows();
         resetColumns();
@@ -50,7 +52,7 @@ public class Controller {
         configureRowsToMatch(model.getColumnIndex(columnName), text);
     }
 
-    public void configureRowsToMatch(int columnIndex, int searchType, int operation) {
+    public void configureRowsToMatch(int columnIndex, int searchType, int operation) throws InvalidDateStringException {
 
         int index = -1;
         if (searchType == DataMatcher.NUMBER){
@@ -74,7 +76,7 @@ public class Controller {
         return index;
     }
 
-    private int searchYear(int columnIndex, int operation, int yearFormat){
+    private int searchYear(int columnIndex, int operation, int yearFormat) throws InvalidDateStringException {
         List<String> columnData = model.getColumnData(columnIndex);
 
         int index = -1;
@@ -86,7 +88,8 @@ public class Controller {
         return index;
     }
 
-    public void configureRowsToMatch(String columnName, int searchType, int operation) throws ColumnDoesNotExistException {
+    public void configureRowsToMatch(String columnName, int searchType, int operation)
+            throws ColumnDoesNotExistException, InvalidDateStringException {
         configureRowsToMatch(model.getColumnIndex(columnName), searchType, operation);
     }
 

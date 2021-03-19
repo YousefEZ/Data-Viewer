@@ -21,7 +21,14 @@ public class DataFrame {
         for (String column: columnNames){
             addColumn(column);
         }
+    }
 
+    public DataFrame(String[] columnNames){
+        this.table = new ArrayList<List<String>>();
+        this.columnNames = new ArrayList<String>();
+        for (String column: columnNames){
+            addColumn(column);
+        }
     }
 
     public List<List<String>> getTable(){
@@ -99,5 +106,10 @@ public class DataFrame {
             rows.add(row);
         }
         return rows.toString();
+    }
+
+    public void setRows(String columnName, List<String> rows) throws ColumnDoesNotExistException {
+        int columnIndex = getColumnIndex(columnName);
+        table.set(columnIndex, rows);
     }
 }
