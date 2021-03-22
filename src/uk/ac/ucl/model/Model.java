@@ -1,19 +1,21 @@
 package uk.ac.ucl.model;
 
 import uk.ac.ucl.dataframe.DataFrame;
+import uk.ac.ucl.dataframe.exceptions.ColumnAlreadyExistsException;
 import uk.ac.ucl.filehandlers.DataLoader;
 import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
+import uk.ac.ucl.filehandlers.JSONWriter;
 import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
 
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 
 public class Model {
 
     private DataFrame dataFrame;
 
-    public Model(String fileName) throws FileNotFoundException, InvalidJSONFileFormat{
+    public Model(String fileName) throws FileNotFoundException, InvalidJSONFileFormat, ColumnAlreadyExistsException {
         dataFrame = DataLoader.read(fileName);
     }
 
@@ -26,11 +28,7 @@ public class Model {
     }
 
     public List<String> getColumnData(int columnIndex){
-        try {
-            return dataFrame.getColumn(columnIndex);
-        } catch (ColumnDoesNotExistException exception){
-            return new ArrayList<>();
-        }
+        return dataFrame.getRows(columnIndex);
     }
 
     public int getColumnIndex(String columnName) throws ColumnDoesNotExistException {
@@ -43,8 +41,7 @@ public class Model {
         throw new ColumnDoesNotExistException();
     }
 
-
-    public DataFrame getDataFrame() {
-        return dataFrame;
+    public void exportToJSON(String filename) throws IOException {
+        JSONWriter.write(filename, dataFrame);
     }
 }

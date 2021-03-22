@@ -2,11 +2,12 @@ package uk.ac.ucl.gui;
 
 
 import uk.ac.ucl.controller.Controller;
-import uk.ac.ucl.controller.DataMatcher;
+import uk.ac.ucl.controller.Find;
 import uk.ac.ucl.controller.exceptions.InvalidDateStringException;
-import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
-import uk.ac.ucl.filehandlers.JSONWriter;
+import uk.ac.ucl.dataframe.exceptions.ColumnAlreadyExistsException;
 import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
+import uk.ac.ucl.graphs.Graph;
+import uk.ac.ucl.gui.dialogs.FindDialog;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -27,10 +28,10 @@ public class GUI {
     private JFrame frame;
 
     private JButton loadButton;
-    private JButton searchButton;
     private JButton resetButton;
     private JButton findButton;
     private JButton exportButton;
+    private JButton graphButton;
 
     private List<JCheckBox> checkBoxes;
 
@@ -53,7 +54,6 @@ public class GUI {
 
         buttonPanel = new JPanel();
         sidePanel =  new JPanel();
-
     }
 
     private void initialiseFrame(){
@@ -82,22 +82,26 @@ public class GUI {
         resetButton = new JButton("Reset");
         resetButton.addActionListener(event -> resetData());
 
-        searchButton = new JButton("Search");
-        searchButton.addActionListener(event -> searchData());
-
         findButton = new JButton("Find");
         findButton.addActionListener(event -> findData());
 
         exportButton = new JButton("Export");
         exportButton.addActionListener(event -> exportData());
+
+        graphButton = new JButton("Graph");
+        graphButton.addActionListener(event -> graphData());
+    }
+
+    private void setButtonsEnabled(boolean enabled){
+        resetButton.setEnabled(enabled);
+        findButton.setEnabled(enabled);
+        exportButton.setEnabled(enabled);
+        graphButton.setEnabled(enabled);
     }
 
     private void initialiseButtons(){
         createButtons();
-        searchButton.setEnabled(false);
-        resetButton.setEnabled(false);
-        findButton.setEnabled(false);
-        exportButton.setEnabled(false);
+        setButtonsEnabled(false);
     }
 
     private void initialiseCheckBoxes(){
@@ -110,37 +114,39 @@ public class GUI {
     }
 
     // <---------------- Placing components on the frame ---------------->
+
+    // places the components into their respective panels, and onto the frame.
     private void placeComponents(){
         buttonPanel.add(loadButton);
         buttonPanel.add(resetButton);
-        buttonPanel.add(searchButton);
         buttonPanel.add(findButton);
         buttonPanel.add(exportButton);
+        buttonPanel.add(graphButton);
 
         sidePanel.add(new JLabel(" FILTERS: "), BorderLayout.NORTH);
         frame.add(buttonPanel, BorderLayout.SOUTH);
         frame.add( new JScrollPane(sidePanel), BorderLayout.WEST);
-
         frame.add( new JScrollPane(table), BorderLayout.CENTER); //make it scrollable
     }
 
+    // places the checkboxes onto the side panel.
     private void placeCheckBoxes(){
         for (JCheckBox checkBox: checkBoxes){
-            sidePanel.add(checkBox); // place the checkbox
+            sidePanel.add(checkBox);
         }
     }
 
     // <--------------- Setting up components with data  ---------------->
-    private void setupController(String fileName) throws FileNotFoundException, InvalidJSONFileFormat{
-        controller = new Controller(fileName); // sets up controller.
+
+    // sets up the controller with the file given by the user.
+    private void setupController(String fileName) throws FileNotFoundException, InvalidJSONFileFormat, ColumnAlreadyExistsException {
+        controller = new Controller(fileName);
         frame.setTitle(fileName + " - Data Viewer");
-        searchButton.setEnabled(true);
-        resetButton.setEnabled(true);
-        findButton.setEnabled(true);
-        exportButton.setEnabled(true);
+        setButtonsEnabled(true);
         setupData();
     }
 
+    // when data is loaded, view needs to construct the table, and setup the checkboxes.
     private void setupData() {
         setupSidePanel();
         setupTable();
@@ -150,6 +156,7 @@ public class GUI {
         frame.setVisible(true);
     }
 
+    // sets up the table with data.
     private void setupTable(){
         table.removeAll();
         DefaultTableModel tableData = new DefaultTableModel();
@@ -160,6 +167,7 @@ public class GUI {
         table.setModel(tableData);
     }
 
+    // clears any action listeners that have been attached to the checkbox.
     private void clearCheckBoxListeners(JCheckBox checkBox){
         ActionListener[] actionListeners = checkBox.getActionListeners();
         for (ActionListener actionListener: actionListeners){
@@ -167,12 +175,25 @@ public class GUI {
         }
     }
 
+    // integrates the checkbox with an ActionListener that shows/hides a column when selected.
     private void integrateCheckBox(TableColumn column, JCheckBox checkBox){
         int columnIndex = column.getModelIndex();
         clearCheckBoxListeners(checkBox);
-        checkBox.addActionListener(event -> showColumn(column, columnIndex, checkBox.isSelected()));
+        checkBox.addActionListener(event -> toggleColumn(column, columnIndex, checkBox.isSelected()));
     }
 
+    // triggered by Filter checkboxes on the sidePanel.
+    private void toggleColumn(TableColumn column, int columnIndex, boolean show){
+        if (show) {
+            showColumn(column, columnIndex);
+            controller.showColumn(columnIndex);
+        } else {
+            table.removeColumn(column);
+            controller.hideColumn(columnIndex);
+        }
+    }
+
+    // creates the checkboxes and integrates them.
     private void setupCheckboxes() {
         List<String> columnNames =  controller.getColumnNames();
         for (int columnIndex = 0; columnIndex < columnNames.size(); columnIndex++) {
@@ -182,43 +203,35 @@ public class GUI {
         }
     }
 
+    // sets up the side panel which holds the checkboxes.
     private void setupSidePanel(){
         sidePanel.removeAll();
-        sidePanel.setLayout(new GridLayout(controller.getColumnNames().size()+1, 1));
+        sidePanel.setLayout(new GridLayout(Math.max(controller.getColumnNames().size() + 1, 15), 1));
         sidePanel.add(new JLabel(" FILTERS: "));
     }
 
-    // <-------------- Action Functions -------------->
+    // <----------------- Button Action Listeners --------------->
 
-    // triggered by checkboxes on the sidePanel.
-    private void showColumn(TableColumn column, int columnIndex, boolean show){
-        if (show) {
-            table.addColumn(column);
-            if (table.getColumnCount() - 1 > columnIndex) { // move back to original position.
-                table.moveColumn(table.getColumnCount() - 1, columnIndex);
-            }
-            controller.showColumn(columnIndex);
-        } else {
-            table.removeColumn(column);
-            controller.hideColumn(columnIndex);
-        }
-    }
-
+    // loads the data from a file that a user has given (.JSON / .csv)
     private void loadData(){
         String filename = UserDialogInput.getFileName(frame, false);
         if (filename.equals("")) return; // not to trigger error message
         try {
             setupController(filename);
-            JOptionPane.showMessageDialog(frame, "File has been loaded");
+            JOptionPane.showMessageDialog(frame, "File has been loaded", "Loaded", JOptionPane.INFORMATION_MESSAGE);
         } catch (FileNotFoundException exception){
-            JOptionPane.showMessageDialog(frame,"File selected could not be found.","File not Found",
+            JOptionPane.showMessageDialog(frame,"File selected could not be found.","File not Found.",
                     JOptionPane.ERROR_MESSAGE);
         } catch (InvalidJSONFileFormat exception){
-            JOptionPane.showMessageDialog(frame,"File given doesn't follow the preferred JSON format",
-                    "File not Found", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame,"File given doesn't follow the set JSON format.",
+                    "Parse Error", JOptionPane.ERROR_MESSAGE);
+        } catch (ColumnAlreadyExistsException exception){
+            JOptionPane.showMessageDialog(frame,"File given have duplicate columns of: " + exception.getColumn(),
+                    "Invalid File", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // resets the rows, and columns.
     private void resetData(){
         controller.resetRows();
         controller.resetColumns();
@@ -226,70 +239,103 @@ public class GUI {
         JOptionPane.showMessageDialog(frame, "Rows have been reset");
     }
 
-    private void hideColumns(){
-        List<Boolean> columnsDisplayed = controller.getDisplayedColumns();
-        int offset = 0;
-        for (int columnIndex = 0; columnIndex < columnsDisplayed.size(); columnIndex++) {
-            if (!columnsDisplayed.get(columnIndex)) {
-                TableColumn tableColumn = table.getColumnModel().getColumn(columnIndex - offset);
-                showColumn(tableColumn, columnIndex, false);
-                offset++;
-            }
-        }
-    }
-
-    private void rebuildTable(){
-        setupTable();
-        setupCheckboxes();
-        hideColumns();
-    }
-
-    private void searchData(){
-        String column = UserDialogInput.getSearchColumn(frame, controller.getColumnNames());
-        if (column == null) return;
-        String text = UserDialogInput.getTextInput(frame);
-        try {
-            controller.configureRowsToMatch(column, text);
-            rebuildTable();
-            JOptionPane.showMessageDialog(frame, "Search Completed, Matched: " + controller.getRowCount()  + " Rows",
-                    "Search", JOptionPane.INFORMATION_MESSAGE);
-        } catch (ColumnDoesNotExistException exception){
-            JOptionPane.showMessageDialog(frame,"Column specified is not recognised","Error",
-                    JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void findData(){
+    // finds and displays data based on the user's input.
+    private void findData() {
         FindDialog findDialog = UserDialogInput.getFindCriteria(frame, controller.getColumnNames());
-        if (findDialog.getResponse() == FindDialog.SUBMITTED){
-            try {
-                controller.configureRowsToMatch(findDialog.getColumnIndex(), findDialog.getSearchType(),
-                        findDialog.getOperation());
-                rebuildTable();
-                JOptionPane.showMessageDialog(frame, "Find Operation Completed", "Find",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } catch (NumberFormatException exception) {
-                JOptionPane.showMessageDialog(frame,"Column does not conform to the type given","Error",
-                        JOptionPane.ERROR_MESSAGE);
-            } catch (InvalidDateStringException exception) {
-                JOptionPane.showMessageDialog(frame, exception.getexceptionAt() + " doesn't fit the format of " +
-                        DataMatcher.FINDTYPES[findDialog.getSearchType()], "Error", JOptionPane.ERROR_MESSAGE);
+        if (findDialog.getResponse() == FindDialog.SUBMITTED) {
+            if (findDialog.getSearchType() == Find.STRING) {
+                displayMatchedStrings(findDialog.getColumnIndex(), findDialog.getSearchPhrase());
+            } else {
+                displayExtremeData(findDialog.getColumnIndex(), findDialog.getSearchType(), findDialog.getOperation());
             }
+            rebuildTable();
         }
     }
 
+    // exports the data into JSON.
     private void exportData(){
         String filename = UserDialogInput.getFileName(frame, true);
         if (filename.equals("")) return;
         try {
-            JSONWriter.write(filename, controller.getDataFrame());
-            JOptionPane.showMessageDialog(frame, "successfully exported data to: " + filename, "Export Successful",
-                    JOptionPane.INFORMATION_MESSAGE);
+            controller.exportToJSON(filename);
+            JOptionPane.showMessageDialog(frame, "successfully exported data to: " + filename + ".json",
+                    "Export Successful", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException exception){
             JOptionPane.showMessageDialog(frame, "error has occurred whilst exporting data.", "Error",
                     JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // graphs the data given, based on user input.
+    private void graphData(){
+        try {
+            Graph graph = UserDialogInput.getGraph(frame, controller);
+            if (graph != null) new GraphDisplay(graph); // if null then don't display anything.
+        } catch (InvalidDateStringException exception) {
+            JOptionPane.showMessageDialog(frame, "column does not have correctly formatted dates", "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        } catch (NumberFormatException exception){
+            JOptionPane.showMessageDialog(frame, "column does not have correctly formatted values for a graph",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
+    // <--------------- Auxiliary Methods --------------->
+
+    // places the column in it's correct position.
+    private void showColumn(TableColumn column, int columnIndex){
+        table.addColumn(column);
+        for (int currentColumnIndex = table.getColumnCount() - 2; currentColumnIndex >= 0; currentColumnIndex--){
+            if (columnIndex > controller.getColumnIndex(table.getColumnName(currentColumnIndex))){
+                table.moveColumn(table.getColumnCount() - 1, currentColumnIndex+1);
+                return;
+            }
+        }
+        table.moveColumn(table.getColumnCount() - 1, 0);
+    }
+
+    // used when rebuilding the table, to hide the columns that have been hid before the rebuild.
+    private void hideColumns(){
+        List<Boolean> columnsDisplayed = controller.getDisplayedColumns();
+        int offset = 0;
+        for (int columnIndex = 0; columnIndex < columnsDisplayed.size(); columnIndex++) {
+            if (!columnsDisplayed.get(columnIndex)) {
+                TableColumn tableColumn = table.getColumnModel().getColumn(columnIndex - offset);
+                toggleColumn(tableColumn, columnIndex, false);
+                offset++;
+            }
+        }
+    }
+
+    // rebuilds the table when a different set of rows need to be displayed.
+    private void rebuildTable(){
+        setupTable();
+        setupCheckboxes();
+        hideColumns();
+    }
+
+    // displays the rows that have a string that matches the given text at the columnIndex.
+    private void displayMatchedStrings(int columnIndex, String text){
+        if (text == null) return;
+        controller.configureRowsToMatch(columnIndex, text);
+        rebuildTable();
+        JOptionPane.showMessageDialog(frame, "Search Completed, Matched: " + controller.getRowCount()  + " Rows",
+                "Search", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    //  displays the most extreme data (largest / smallest).
+    private void displayExtremeData(int columnIndex, int searchType, int operation){
+        try {
+            controller.configureRowsToFindOperation(columnIndex, searchType, operation);
+            rebuildTable();
+            JOptionPane.showMessageDialog(frame, "Find Operation Completed", "Find",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (NumberFormatException exception) {
+            JOptionPane.showMessageDialog(frame,"Column does not conform to the type given","Error",
+                    JOptionPane.ERROR_MESSAGE);
+        } catch (InvalidDateStringException exception) {
+            JOptionPane.showMessageDialog(frame, exception.getexceptionAt() + " doesn't fit the format of a date.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 }

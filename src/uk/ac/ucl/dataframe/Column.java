@@ -3,38 +3,33 @@ package uk.ac.ucl.dataframe;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Column {
+class Column {
 
     private String columnName;
     private List<String> rows;
 
-    public Column(String columnName){
+    Column(String columnName){
         this.columnName = columnName;
-        this.rows = new ArrayList<String>();
+        this.rows = new ArrayList<>();
     }
 
-    public Column(String columnName, ArrayList<String> rows){
-        this.columnName = columnName;
-        this.rows = rows;
-    }
-
-    public String getName(){
+    String getName(){
         return this.columnName;
     }
 
-    public int getSize(){
+    int getSize(){
         return this.rows.size();
     }
 
-    public String getRowValue(int index){
+    String getRowValue(int index){
         return rows.get(index);
     }
 
-    public void setRowValue(int index, String value){
+    void setRowValue(int index, String value){
         rows.set(index, value);
     }
 
-    public void addRowValue(String row){
+    void addRowValue(String row){
         rows.add(row);
     }
 

@@ -1,5 +1,6 @@
 package uk.ac.ucl.dataframe;
 
+import uk.ac.ucl.dataframe.exceptions.ColumnAlreadyExistsException;
 import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
 
 import java.util.ArrayList;
@@ -7,109 +8,85 @@ import java.util.List;
 
 public class DataFrame {
 
-    private List<String> columnNames;
-    private List<List<String>> table; // 2-D ArrayList
+    private List<Column> columns;
 
     public DataFrame(){
-        this.columnNames = new ArrayList<String>();
-        this.table = new ArrayList<List<String>>();
+        this.columns = new ArrayList<>();
     }
 
-    public DataFrame(List<String> columnNames){
-        this.table = new ArrayList<List<String>>();
-        this.columnNames = new ArrayList<String>();
+    public DataFrame(String[] columnNames) throws ColumnAlreadyExistsException {
+        this.columns = new ArrayList<>();
         for (String column: columnNames){
             addColumn(column);
         }
-    }
-
-    public DataFrame(String[] columnNames){
-        this.table = new ArrayList<List<String>>();
-        this.columnNames = new ArrayList<String>();
-        for (String column: columnNames){
-            addColumn(column);
-        }
-    }
-
-    public List<List<String>> getTable(){
-        return table;
-    }
-
-    public void addColumn(String columnName){
-        columnNames.add(columnName);
-        List<String> rows = new ArrayList<>();
-
-        int numberOfRows = getRowCount();
-        for (int i = 0; i < numberOfRows; i++){
-            rows.add("");
-        }
-
-        table.add(rows);
     }
 
     public List<String> getColumnNames(){
+        List<String> columnNames = new ArrayList<>();
+        for (Column column: columns){
+            columnNames.add(column.getName());
+        }
         return columnNames;
     }
 
-    // the number of rows in a column,
-    // all columns should have the same number of rows when the frame is fully loaded with data
-    public int getRowCount(){
-        return (table.size() == 0) ? 0 : table.get(0).size();
+    public void addColumn(String columnName) throws ColumnAlreadyExistsException {
+        if (getColumnIndex(columnName) != -1) {
+            throw new ColumnAlreadyExistsException(columnName);
+        }
+        this.columns.add(new Column(columnName));
     }
 
-    private int getColumnIndex(String columnName) throws ColumnDoesNotExistException {
-        for (int i = 0; i < columnNames.size(); i++){
-            if (columnNames.get(i).equals(columnName)){
+    public int getRowCount(){
+        return this.columns.get(0).getSize();
+    }
+
+    private int getColumnIndex(String columnName){
+        for (int i = 0; i < columns.size(); i++){
+            if (columns.get(i).getName().equals(columnName)){
                 return i;
             }
         }
-        throw new ColumnDoesNotExistException();
+        return -1;
     }
 
-    public List<String> getColumn(String columnName) throws ColumnDoesNotExistException {
+    public String getValue(String columnName, int row) throws ColumnDoesNotExistException{
         int columnIndex = getColumnIndex(columnName);
-        return table.get(columnIndex);
+        if (columnIndex == -1){
+            throw new ColumnDoesNotExistException();
+        }
+        return getValue(columnIndex, row);
     }
 
-    public List<String> getColumn(int columnIndex) throws ColumnDoesNotExistException {
-        return table.get(columnIndex);
-    }
-
-    public String getValue(String columnName, int row) throws ColumnDoesNotExistException {
-        int columnIndex = getColumnIndex(columnName);
-        return table.get(columnIndex).get(row);
+    public String getValue(int columnIndex, int row) throws ColumnDoesNotExistException {
+        return columns.get(columnIndex).getRowValue(row);
     }
 
     public void putValue(String columnName, int row, String value) throws ColumnDoesNotExistException {
         int columnIndex = getColumnIndex(columnName);
-        table.get(columnIndex).set(row, value);
-    }
+        if (columnIndex == -1) throw new ColumnDoesNotExistException();
 
-    public void addValue(String columnName, String value) throws ColumnDoesNotExistException {
-        int columnIndex = getColumnIndex(columnName);
-        table.get(columnIndex).add(value);
+        columns.get(columnIndex).setRowValue(row, value);
     }
 
     public void addValue(int columnIndex, String value){
-        table.get(columnIndex).add(value);
+        columns.get(columnIndex).addRowValue(value);
     }
 
-    public String toString(){
-        int numberRows = getRowCount();
-        int numberColumns = columnNames.size();
-        List<List<String>> rows = new ArrayList<List<String>>();
-        for (int r = 0; r < numberRows; r++){
-            ArrayList<String> row = new ArrayList<String>();
-            for (int c = 0; c < numberColumns; c++){
-                row.add(table.get(c).get(r));
-            }
-            rows.add(row);
-        }
-        return rows.toString();
-    }
-
-    public void setRows(String columnName, List<String> rows) throws ColumnDoesNotExistException {
+    public void addValue(String columnName, String value) throws ColumnDoesNotExistException{
         int columnIndex = getColumnIndex(columnName);
-        table.set(columnIndex, rows);
+        if (columnIndex == -1){
+            throw new ColumnDoesNotExistException();
+        }
+        addValue(columnIndex, value);
     }
+
+    public List<String> getRows(int column) {
+        int rowCount = getRowCount();
+        List<String> rows = new ArrayList<>();
+        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++){
+            rows.add(getValue(column, rowIndex));
+        }
+        return rows;
+    }
+
 }

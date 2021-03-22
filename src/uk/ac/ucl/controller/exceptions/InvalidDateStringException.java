@@ -1,6 +1,6 @@
 package uk.ac.ucl.controller.exceptions;
 
-public class InvalidDateStringException extends Throwable {
+public class InvalidDateStringException extends Exception {
 
     private String exceptionAt;
 

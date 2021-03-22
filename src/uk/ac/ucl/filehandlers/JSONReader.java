@@ -1,7 +1,7 @@
 package uk.ac.ucl.filehandlers;
 
 import uk.ac.ucl.dataframe.DataFrame;
-import uk.ac.ucl.dataframe.exceptions.ColumnDoesNotExistException;
+import uk.ac.ucl.dataframe.exceptions.ColumnAlreadyExistsException;
 import uk.ac.ucl.filehandlers.exceptions.InvalidJSONFileFormat;
 
 import java.io.File;
@@ -15,7 +15,7 @@ class JSONReader {
     private Scanner scanner;
     private boolean EOF;
 
-    private JSONReader(String fileName) throws FileNotFoundException, InvalidJSONFileFormat {
+    private JSONReader(String fileName) throws FileNotFoundException, InvalidJSONFileFormat, ColumnAlreadyExistsException {
         File file = new File(fileName);
         scanner = new Scanner(file);
         dataFrame = new DataFrame();
@@ -23,21 +23,18 @@ class JSONReader {
         nextLine = "";
         EOF = false;
         scanFile();
-
     }
 
-    private void scanFile() throws InvalidJSONFileFormat {
+    // scans file and begins adding columns to the dataFrame.
+    private void scanFile() throws InvalidJSONFileFormat, ColumnAlreadyExistsException {
         while (nextLine.indexOf('{') == -1){
             if (!scanner.hasNextLine()) throw new InvalidJSONFileFormat();
             nextLine = scanner.nextLine().trim();
         }
-
         while (!EOF){
-            addColumn();
+            createNextColumn();
         }
-
         scanner.close();
-
     }
 
     // moves the scanner to a line where it's not empty.
@@ -53,7 +50,10 @@ class JSONReader {
         return nextLine;
     }
 
-    // moves the scanner to the next column (key - value pair).
+    /** moves the scanner to begin reading the next column.
+     *
+     * @throws InvalidJSONFileFormat if the reader detects that the file doesn't follow the required format.
+     */
     private void adjustScannerToNextColumn() throws InvalidJSONFileFormat {
         if (nextLine.charAt(0) != ','){
             if (checkBrace()) return;
@@ -64,6 +64,7 @@ class JSONReader {
         nextLine = nextLine.substring(1).trim();
     }
 
+    // checks if there is a right brace that signals the end of file (EOF).
     private Boolean checkBrace(){
         if (nextLine.charAt(0) == '}'){
             EOF = true;
@@ -72,53 +73,80 @@ class JSONReader {
         return false;
     }
 
+    /** Gathers all the elements in the array and places it onto one line, for easier parsing.
+     *
+     * @return String that holds the key and value in one line.
+     * @throws InvalidJSONFileFormat if the reader detects that the file doesn't follow the required format.
+     */
     private String collateField() throws InvalidJSONFileFormat {
         StringBuilder stringBuilder = new StringBuilder();
         while(nextLine.indexOf(']') == -1){
+            // while the scanner hasn't reached the line containing the close array symbol ']'
             nextLine = adjustScannerToRemoveLines().trim();
+            // if this line contains close array then only take the substring from 0 to that index.
             String element = nextLine.indexOf(']') == -1 ? nextLine : nextLine.substring(0, nextLine.indexOf(']'));
             stringBuilder.append(element);
-            if (EOF) throw new InvalidJSONFileFormat();
+            if (EOF) throw new InvalidJSONFileFormat(); // if we have reached the EOF without locating ']', throw error.
         }
-        nextLine = nextLine.substring(nextLine.indexOf(']')+1).trim();
-        if (nextLine.equals("")) nextLine = adjustScannerToRemoveLines();
+        nextLine = nextLine.substring(nextLine.indexOf(']')+1).trim(); // take the substring after the ']'
+        if (nextLine.equals("")) nextLine = adjustScannerToRemoveLines(); // if its empty get the next existing line.
         adjustScannerToNextColumn();
         return stringBuilder.toString();
     }
 
-    private List<String> convertStringedArrayToArray(String array){
-        List<String> rows = new ArrayList<>();
-        List<String> keyValuePairs = fragmentRecord(array, ",");
-        for (String keyValuePair: keyValuePairs){
-            keyValuePair = keyValuePair.trim();
-            rows.add(keyValuePair.substring(keyValuePair.indexOf('"')+1, keyValuePair.lastIndexOf('"')));
-        }
-        return rows;
-    }
+    /** Reads the next line(s), gathers the data, and places it into a Column.
+     *
+     * @throws InvalidJSONFileFormat if the reader detects that the file doesn't follow the required format.
+     */
+    private void createNextColumn() throws InvalidJSONFileFormat, ColumnAlreadyExistsException {
 
-    private void addColumn() throws InvalidJSONFileFormat {
+        List<String> fragmented = fragmentRecord(collateField(), ":"); // splits the line to key and value.
 
-        List<String> fragmented = fragmentRecord(collateField(), ":");
-
-        String columnName = fragmented.get(0);
-        columnName = columnName.substring(columnName.indexOf('"')+1, columnName.lastIndexOf('"'));
+        String columnName = fragmented.get(0); // the key is the name of the column.
+        columnName = columnName.substring(columnName.indexOf('"')+1, columnName.lastIndexOf('"')); // discard ""
         String rowsString = fragmented.get(1).trim();
 
+        // if the first character isn't the start of the array then throw an error as being invalid.
         if (rowsString.charAt(0) != '['){
             throw new InvalidJSONFileFormat();
         }
         createColumn(columnName, rowsString);
     }
 
-    private void createColumn(String columnName, String rowsString){
+    /** creates a column in the dataFrame.
+     *
+     * @param columnName creates a column in the dataFrame with the given name.
+     * @param rowsString all rows in a column in one string, that gets converted into a List and put in the dataFrame.
+     */
+    private void createColumn(String columnName, String rowsString) throws ColumnAlreadyExistsException {
         dataFrame.addColumn(columnName);
-        try {
-            dataFrame.setRows(columnName, convertStringedArrayToArray(rowsString));
-        } catch (ColumnDoesNotExistException e) {
-            e.printStackTrace(); //should be impossible.
+        List<String> rows = convertStringedArrayToArray(rowsString);
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++){
+            dataFrame.putValue(columnName, rowIndex, rows.get(rowIndex));
         }
     }
 
+    /** Converts an array that is in a form of a String "[row,row,...]" => {row, row, ...} into a List of type String.
+     *
+     * @param array one large string that represents an array. It gets split on the comma delimiter.
+     * @return List of type String that contains all the strings.
+     */
+    private List<String> convertStringedArrayToArray(String array){
+        List<String> rows = new ArrayList<>();
+        List<String> listElements = fragmentRecord(array, ",");
+        for (String element: listElements){
+            element = element.trim();
+            rows.add(element.substring(element.indexOf('"')+1, element.lastIndexOf('"')));
+        }
+        return rows;
+    }
+
+    /** breaks the string based on the delimiter given, and returns it in a list of type String.
+     *
+     * @param record a line that needs to be split based on the delimiter
+     * @param delimiter a string that indicates when to split the record.
+     * @return List of type string that holds all the fragmented strings.
+     */
     private static List<String> fragmentRecord(String record, String delimiter){
         List<String> fields = new ArrayList<>();
         int startIndexOfCurrentWord = 0;
@@ -138,7 +166,8 @@ class JSONReader {
         return dataFrame;
     }
 
-    static DataFrame read(String fileName) throws FileNotFoundException, InvalidJSONFileFormat {
+    // public method that instantiates the class and gets the dataFrame.
+    static DataFrame read(String fileName) throws FileNotFoundException, InvalidJSONFileFormat, ColumnAlreadyExistsException {
         return new JSONReader(fileName).getDataFrame();
     }
 

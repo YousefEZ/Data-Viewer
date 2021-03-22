@@ -1,37 +1,35 @@
 package uk.ac.ucl.gui;
 
+import uk.ac.ucl.controller.Controller;
+import uk.ac.ucl.controller.exceptions.InvalidDateStringException;
+import uk.ac.ucl.graphs.Graph;
+import uk.ac.ucl.gui.dialogs.FindDialog;
+import uk.ac.ucl.gui.dialogs.GraphDialog;
+
 import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.List;
 
-// Dialog
 class UserDialogInput {
 
+
     static String getFileName(JFrame frame, boolean save){
-        FileNameExtensionFilter filter = new FileNameExtensionFilter("Supported Files (*.csv;*.JSON)", "json", "csv");
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(filter);
-        int response = save ? fileChooser.showSaveDialog(frame) : fileChooser.showOpenDialog(frame);
+        int response = save ? fileChooser.showSaveDialog(frame) : fileChooser.showOpenDialog(frame); // display dialog.
 
         if (response == JFileChooser.APPROVE_OPTION){
             return fileChooser.getSelectedFile().getAbsolutePath();
         }
-        return ""; // exited the file chooser.
+        return ""; // exited the file chooser. Empty String to represent cancel.
     }
 
-
-    static String getSearchColumn(JFrame frame, List<String> columns){
-        return (String) JOptionPane.showInputDialog(frame,"Please select the column to search on", "Search",
-                JOptionPane.PLAIN_MESSAGE,null, columns.toArray(), columns.get(0));
-    }
-
-    static String getTextInput(JFrame frame){
-        return JOptionPane.showInputDialog(frame,"Please select the phrase to match", "Search",
-                JOptionPane.PLAIN_MESSAGE);
-    }
-
+    // returns the find dialog which contains the user's choices.
     static FindDialog getFindCriteria(JFrame frame, List<String> columnNames){
         return new FindDialog(frame, columnNames);
+    }
+
+    // returns a Graph that can be displayed.
+    static Graph getGraph(JFrame frame, Controller controller) throws InvalidDateStringException {
+        return GraphDialog.getGraph(frame, controller);
     }
 
 }
