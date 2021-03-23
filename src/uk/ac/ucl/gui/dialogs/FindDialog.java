@@ -49,6 +49,7 @@ public class FindDialog extends JDialog{
 
     private void setupFrame(){
         setSize(400, 140);
+        setTitle("Find");
         setMinimumSize(new Dimension(300, 140));
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);

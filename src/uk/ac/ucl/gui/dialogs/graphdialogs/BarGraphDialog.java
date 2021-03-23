@@ -27,7 +27,6 @@ public class BarGraphDialog extends JDialog {
 
     public BarGraphDialog(JFrame frame, List<String> columns){
         super(frame, true);
-        setTitle("Create Bar Graph");
         response = 0; // only changes if they submit.
         this.columns = columns;
         setupFrame();
@@ -38,6 +37,7 @@ public class BarGraphDialog extends JDialog {
 
     private void setupFrame() {
         setSize(300, 125);
+        setTitle("Create Bar Graph");
         setMinimumSize(new Dimension(300, 125));
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout());

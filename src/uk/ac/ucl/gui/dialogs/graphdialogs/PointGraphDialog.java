@@ -18,7 +18,6 @@ public class PointGraphDialog extends JDialog {
 
     public PointGraphDialog(JFrame frame, List<String> columns){
         super(frame, true);
-        setTitle("Create Plotted Graph");
         response = 0; // changes to SUBMITTED (1) when submit button is clicked.
         this.columns = columns;
         setupFrame();
@@ -29,6 +28,7 @@ public class PointGraphDialog extends JDialog {
 
     private void setupFrame() {
         setSize(300, 125);
+        setTitle("Create Plotted Graph");
         setMinimumSize(new Dimension(300, 125));
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout());
